@@ -47,6 +47,8 @@ const sources: Source[] = [
 // ✅ API Gateway URL at top-level — accessible by analyzeImageWithClaude outside App()
 const API_GATEWAY_URL = "https://46a3b2d25i.execute-api.ap-southeast-1.amazonaws.com/DEV"
 
+const sessionId = `ogis-${crypto.randomUUID()}`
+
 // ✅ Only needed if your Lambda reads model from request body.
 //    If your Lambda hardcodes the Bedrock model ID, you can remove this.
 const ANTHROPIC_MODEL = "claude-sonnet-4-20250514"
@@ -201,9 +203,7 @@ async function analyzeImageWithClaude(
       //    If your Lambda hardcodes the Bedrock model ID, remove this line.
       // model: ANTHROPIC_MODEL,
       // max_tokens: 1000,
-      messages: [
-        {
-          role: "user",
+          sessionID: sessionId,
           content: [
             {
               type: "image",
@@ -216,12 +216,11 @@ async function analyzeImageWithClaude(
             {
               type: "text",
               // ✅ JSON instruction so the response can be parsed into AnalysisResult
-              text: `${userPrompt}\n\nRespond ONLY with a valid JSON object — no markdown fences, no extra text. Use exactly this shape:\n{"description":"...","detected":["tag1","tag2","tag3"],"confidence":0.95,"suggestion":"..."}`,
+              message: `${userPrompt}`,
             },
           ],
         },
-      ],
-    }),
+    ),
   })
 
   if (!response.ok) {
@@ -270,7 +269,7 @@ function App() {
     {
       id: 1,
       role: "ai",
-      contents: [{ type: "text", text: "Hello! Ask me anything about your connected databases — or paste an image (Ctrl+V / Cmd+V) to have it analyzed." }],
+      contents: [{ type: "text", text: "Hello! Ask me anything." }],
     },
   ])
   const [input, setInput]             = useState("")
@@ -366,12 +365,18 @@ function App() {
             "Content-Type": "application/json",
             // "x-api-key": "your-api-gateway-key",
           },
-          body: JSON.stringify({
+          body: JSON.stringify({ 
             // ✅ Include model only if your Lambda reads it from request body
             // model: ANTHROPIC_MODEL,
             // max_tokens: 1000,
-            system: "You are OGIS AI, an intelligent assistant for querying and reasoning about databases. Connected sources: PostgreSQL (Production), MongoDB (Analytics), Firebase (Realtime). MySQL (Legacy DB) is currently offline. Be concise and helpful.",
-            message: capturedText,
+            sessionID: sessionId,  
+              content: [ 
+              {
+                type: "text",
+                // ✅ JSON instruction so the response can be parsed into AnalysisResult
+                message: `${capturedText}`,
+              },
+            ], 
           }),
         })
 
